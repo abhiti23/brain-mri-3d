@@ -14,3 +14,5 @@ train.tsv
 
 # entire data folder
 data/
+
+.idea/
