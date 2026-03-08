@@ -8,4 +8,9 @@ train.npy
 train.tsv
 *.tsv
 *.zip
-*.ipynb # notebooks used in developing the code
+# notebooks used in developing the code
+*.ipynb
+.DS_Store
+
+# entire data folder
+data/
