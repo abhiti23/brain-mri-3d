@@ -29,7 +29,7 @@ y_val_t   = torch.FloatTensor(y_val).unsqueeze(1)
 
 train_loader = DataLoader(TensorDataset(X_train_t, y_train_t), batch_size=64, shuffle=True)
 
-# --- Model: 2 hidden layers (sweet spot) ---
+# --- Model: 2 hidden layers (shallow network to prevent overfitting) ---
 model = nn.Sequential(
     nn.Linear(512, 256),
     nn.BatchNorm1d(256),

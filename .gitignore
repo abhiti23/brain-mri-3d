@@ -14,3 +14,6 @@ data/raw/public_data_challenge/VBM_extracted/
 data/raw/pulbic_data_challenge.zip
 
 .idea/
+
+# files used for visualization while developing the code
+heatmaps.png

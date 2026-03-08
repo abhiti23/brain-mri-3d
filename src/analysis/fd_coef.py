@@ -4,8 +4,6 @@
 # "VBM_coefs.csv" in artifacts/
 import numpy as np
 import os
-from tqdm import tqdm
-import pandas as pd
 import skfda
 from skfda import FDataGrid
 from skfda.representation.basis import BSplineBasis, TensorBasis
@@ -65,8 +63,9 @@ def fd_coef(subj_number = 0, n_basis = 8, verbose = False):
 if __name__ == "__main__":
 
     VBM_DIR = "data/raw/public_data_challenge/VBM_extracted"
-    vbm_files = os.listdir(VBM_DIR)
-    L = len(vbm_files)
+    #vbm_files = os.listdir(VBM_DIR)
+    #L = len(vbm_files)
+    L = 3227
     print(f"Found {L} VBM files.")
 
     n_basis = 8
