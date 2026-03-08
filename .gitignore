@@ -1,0 +1,11 @@
+# this file stores the files that should not be pushed to github
+# data files are too large
+external_test*
+internal_test*
+test.npy
+test.tsv
+train.npy
+train.tsv
+*.tsv
+*.zip
+*.ipynb # notebooks used in developing the code
