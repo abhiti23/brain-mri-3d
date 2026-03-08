@@ -35,7 +35,8 @@ which has the coefficients obtained from representing the training
 VBM images as a Tensor BSpline basis. The following instructions are
 for reproducing these coefficients, but
 WARNING: extracting FD coefficients will take up to 1 day.
-Once data is extracted, use the following command to create an npz file with coefficients when images are represented using a Tensor BSpline Basis-
+Use the following command to create an npz file with coefficients (assuming
+that the previous data extraction has been performed)-
 python src/analysis/fd_coef.py
 
 Once artifacts/coefficients_final.npz exists, the make file can be run as
