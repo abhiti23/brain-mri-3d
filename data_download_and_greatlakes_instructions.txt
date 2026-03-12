@@ -1,0 +1,72 @@
+Starting from zero:
+-Go to: https://ieee-dataport.org/open-access/openbhb-multi-site-brain-mri-dataset-age-prediction-and-debiasing
+-Download: OpenBHB-Training Data (Size: 42.15 GB)
+-You should have a train.zip file at the end of this
+
+Sending to Greatlakes cluster:
+-Navigate to: https://greatlakes.arc-ts.umich.edu/pun/sys/dashboard/
+-Log in
+-Click Files in top left corner
+-Select directory (EECS545). If directory doesn't exist yet, make it.
+-Click Open in Terminal
+-Log in
+-Type the following command to see which GreatLakes accounts you have: my_accounts
+	-You should see something like: eecs545w26_class
+-Check python availability: module avail python
+	- We will use python3.11-anaconda/2024.02
+-To run the code in Greatlakes, we need the (1) data, (2) the python file, and (3) the average brain file
+	-If we try to upload the zip file to Greatlakes directly, it will throw an error saying max 10gb allowed
+	-Instead, we use something called scratch
+		-Scratch is a special directory with really high storage capacity given to each Greatlakes account
+		-This means we have one for eecs545w26_class
+		-See its capacity using command: df -h /scratch/eecs545w26_class_root/
+		-Make a directory in this titled anvay: mkdir -p /scratch/eecs545w26_class_root/eecs545w26_class/anvay
+		-Ensure your name appears here: ls /scratch/eecs545w26_class_root/eecs545w26_class/
+		-This is where we will transfer the zip file into
+	-To get the zip file into scratch, we need to use Globus
+		-Globus connects your personal machine to Greatlakes to allow file transfers
+		-Go to https://www.globus.org/globus-connect-personal
+		-Log in
+		-Download Globus app: https://www.globus.org/globus-connect-personal
+		-Log in once installed (name your collection as your laptop). Close after finishing
+		-Go back to the web browser
+		-In File Manager, on the RHS, there is a "Transfer or Sync to..." button. Click that.
+		-You will see two side-by-side windows. On the left one, select your collection. Your laptop should show up here
+		-On the right one, search for "umich#greatlakes" collection. It may ask you for authentication
+			-Choose filepath: /scratch/eecs545w26_class_root/eecs545w26_class/anvay/
+		-Start the transfer by choosing the zip file from your laptop and hitting the start button
+			-You may need to move the file into your C:/Documents/ folder to see it in Globus
+	-Transfer the python file in the same way (get_gaussian_params.py)
+	-Transfer the average brain file (group_average_gm_T1w.npy)
+		-Note: Both of these are on GitHub: https://github.com/abhiti23/brain-mri-3d/tree/average_brain
+
+Starting the computation:
+-In terminal, make two directories: gmm_1d_outputs and logs
+	- mkdir -p /scratch/eecs545w26_class_root/eecs545w26_class/anvay/gmm_1d_outputs
+	- mkdir -p /scratch/eecs545w26_class_root/eecs545w26_class/anvay/logs
+-Ensure Python packages are downloaded
+	- pip install scikit-learn numpy --break-system-packages
+	- pip install scikit-learn numpy --break-system-packages
+-Change directories
+	- cd /scratch/eecs545w26_class_root/eecs545w26_class/anvay/
+-Unzip the file
+	- unzip train.zip
+	-If it triggers a zip bomb error, do this: UNZIP_DISABLE_ZIPBOMB_DETECTION=TRUE unzip train.zip and select [A]
+-Remove unnecessary files
+	- rm train_fsl.zip train_quasiraw.zip train_roi.zip
+-Unzip VBM data
+	- UNZIP_DISABLE_ZIPBOMB_DETECTION=TRUE unzip train_vbm.zip
+-Unzip labels
+	- unzip train_labels.zip
+	- ls *.csv 2>/dev/null || ls *.tsv 2>/dev/null || ls *label* 2>/dev/null
+-Run tests on login node
+	- module load python3.11-anaconda/2024.02
+	- python get_gaussian_params.py --start 0 --end 2
+-Run tests on compute node
+	- srun --account=eecs545w26_class --partition=standard --nodes=1 --ntasks-per-node=1 --cpus-per-task=4 --mem=32gb --time=01:00:00 --pty bash
+	- module load python3.11-anaconda/2024.02
+	- python get_gaussian_params.py --start 0 --end 2
+-Run batch job (all files)
+	- sbatch run_gmm.sh (takes 7.5 days)
+-Run updated batch job (all files)
+	- sbatch run_gmm_v2.sh (takes 4 hours)
