@@ -2,7 +2,11 @@
 # data files are too large
 external_test*
 internal_test*
-*.npy
+VBM_*
+external_test.npy
+internal_test.npy
+test.npy
+train.npy
 *.tsv
 *.zip
 # notebooks used in developing the code
@@ -10,8 +14,7 @@ internal_test*
 .DS_Store
 *.nii.gz
 
-# entire data folder
-data/raw/public_data_challenge/VBM_extracted/
+# zip file
 data/raw/pulbic_data_challenge.zip
 
 .idea/
