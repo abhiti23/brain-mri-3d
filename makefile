@@ -1,4 +1,4 @@
-visualize_slice: artifacts/checkpoint.npz src/pipeline/visualize_fd_step.py
+visualize_slices: artifacts/checkpoint.npz src/pipeline/visualize_fd_step.py
 	echo ">>> Visualizing slices for a random subject"
 	python src/pipeline/visualize_fd_step.py
 

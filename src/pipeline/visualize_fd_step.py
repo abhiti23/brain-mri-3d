@@ -199,76 +199,74 @@ plt.savefig("artifacts/heatmap_third_slice.png", dpi=150, bbox_inches="tight")
 ### Plot the middle slice across the three axes ###
 mid_indices = [i//2 for i in rand_image.shape]
 
-nrows = 3
-ncols = 2
+nrows = 2
+ncols = 3
 fig, axes = plt.subplots(nrows, ncols, figsize=(ncols * 2, nrows * 2))
 fig.subplots_adjust(right=0.8)
 cbar_ax = fig.add_axes([0.85, 0.15, 0.05, 0.7])
 axes = axes.flatten()
-a=0
+
+# First row: Original images
 sns.heatmap(
-        rand_image[mid_indices[0],:, :],          # shape (109, 91)
-        ax=axes[2*a],
-        cmap="viridis",
-        cbar=False,          # too cluttered with 91 colorbars
-        xticklabels=False,
-        yticklabels=False,
-    )
-axes[2*a].set_title(f"Original, Sagittal View", fontsize=8)
+    rand_image[mid_indices[0], :, :],  # Sagittal
+    ax=axes[0],
+    cmap="viridis",
+    cbar=False,
+    xticklabels=False,
+    yticklabels=False,
+)
+axes[0].set_title("Original, Sagittal View", fontsize=8)
 
 sns.heatmap(
-        values_3d[0, mid_indices[0],:, :],  # shape (109, 91)
-        ax=axes[2*a+1],
-        cmap="viridis",
-        cbar=False,  # too cluttered with 91 colorbars
-        xticklabels=False,
-        yticklabels=False,
-    )
-axes[2*a+1].set_title(f"Approximated, Sagittal View", fontsize=8)
-a = a+1
+    rand_image[:, mid_indices[1], :],  # Coronal
+    ax=axes[1],
+    cmap="viridis",
+    cbar=False,
+    xticklabels=False,
+    yticklabels=False,
+)
+axes[1].set_title("Original, Coronal View", fontsize=8)
 
 sns.heatmap(
-        rand_image[:, mid_indices[1], :],          # shape (109, 91)
-        ax=axes[2*a],
-        cmap="viridis",
-        cbar=False,          # too cluttered with 91 colorbars
-        xticklabels=False,
-        yticklabels=False,
-    )
-axes[2*a].set_title(f"Original, Coronal View", fontsize=8)
+    rand_image[:, :, mid_indices[2]],  # Axial
+    ax=axes[2],
+    cmap="viridis",
+    cbar=False,
+    xticklabels=False,
+    yticklabels=False,
+)
+axes[2].set_title("Original, Axial View", fontsize=8)
+
+# Second row: Approximated images
+sns.heatmap(
+    values_3d[0, mid_indices[0], :, :],  # Sagittal
+    ax=axes[3],
+    cmap="viridis",
+    cbar=False,
+    xticklabels=False,
+    yticklabels=False,
+)
+axes[3].set_title("Approximated", fontsize=8)
 
 sns.heatmap(
-        values_3d[0, :,mid_indices[1], :],  # shape (109, 91)
-        ax=axes[2*a+1],
-        cmap="viridis",
-        cbar=False,  # too cluttered with 91 colorbars
-        xticklabels=False,
-        yticklabels=False,
-    )
-axes[2*a+1].set_title(f"Approximated, Coronal View", fontsize=8)
-a = a+1
+    values_3d[0, :, mid_indices[1], :],  # Coronal
+    ax=axes[4],
+    cmap="viridis",
+    cbar=False,
+    xticklabels=False,
+    yticklabels=False,
+)
+axes[4].set_title("Approximated", fontsize=8)
 
 sns.heatmap(
-        rand_image[:, :, mid_indices[2]],          # shape (109, 91)
-        ax=axes[2*a],
-        cmap="viridis",
-        cbar=False,          # too cluttered with 91 colorbars
-        xticklabels=False,
-        yticklabels=False,
-    )
-axes[2*a].set_title(f"Original, Axial View", fontsize=8)
-
-sns.heatmap(
-        values_3d[0, :,:, mid_indices[2]],  # shape (109, 91)
-        ax=axes[2*a+1],
-        cmap="viridis",
-        cbar=False,  # too cluttered with 91 colorbars
-        xticklabels=False,
-        yticklabels=False,
-    )
-axes[2*a+1].set_title(f"Approximated, Axial View", fontsize=8)
-a = a+1
-
+    values_3d[0, :, :, mid_indices[2]],  # Axial
+    ax=axes[5],
+    cmap="viridis",
+    cbar=False,
+    xticklabels=False,
+    yticklabels=False,
+)
+axes[5].set_title("Approximated", fontsize=8)
 
 # Add a single shared colorbar
 sm = plt.cm.ScalarMappable(cmap="viridis", norm=plt.Normalize(
