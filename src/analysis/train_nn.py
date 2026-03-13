@@ -18,15 +18,15 @@ else:
     X = np.load("artifacts/checkpoint.npz")["coefficients"]  # (a,1,512)
     X = X.squeeze(1)  # (a, 512)
     y = np.load(
-        "data/raw/public_data_challenge/VBM_extracted/train_y.npy")  # (3227,)
+        "data/raw/public_data_challenge/VBM_extracted/train_y.npy")  # (a,)
     y = y[:X.shape[0]]
 
 # --- Preprocess ---
 scaler_X = StandardScaler()
 X = scaler_X.fit_transform(X)
 
-scaler_y = StandardScaler()
-y = scaler_y.fit_transform(y.reshape(-1, 1)).ravel()
+#scaler_y = StandardScaler()
+#y = scaler_y.fit_transform(y.reshape(-1, 1)).ravel()
 
 X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.15, random_state=42)
 
