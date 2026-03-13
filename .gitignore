@@ -8,6 +8,7 @@ internal_test*
 # notebooks used in developing the code
 *.ipynb
 .DS_Store
+*.nii.gz
 
 # entire data folder
 data/raw/public_data_challenge/VBM_extracted/

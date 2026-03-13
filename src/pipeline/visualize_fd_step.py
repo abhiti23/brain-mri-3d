@@ -11,7 +11,7 @@ from skfda import FDataBasis
 
 #############################
 ### LOAD a random image #####
-L = 3227
+L = 1500
 random_subj = np.random.randint(0, L-1)
 print(f"Visualization for subject {random_subj}")
 file_name = f"data/raw/public_data_challenge/VBM_extracted/VBM_{random_subj}.npy"
@@ -23,7 +23,7 @@ indices = np.arange(0, total_slices, step=total_slices//n_slices)
 
 #############################
 ### LOAD corresponding coefficients of the TensorBasis
-file_name = f"artifacts/coefficients_final.npz"
+file_name = f"artifacts/checkpoint.npz"
 all_coefficients = np.load(file_name)["coefficients"]
 all_coefficients = all_coefficients.squeeze(1)
 coefficients = all_coefficients[random_subj, :]
@@ -52,7 +52,7 @@ grid_points_flat = np.column_stack([xx.ravel(), yy.ravel(), zz.ravel()])  # (91*
 
 # Evaluate — result shape: (n_subjects, n_points, 1)
 values_flat = fd_basis(grid_points_flat)
-values_3d = values_flat[..., 0].reshape(-1, 91, 109, 91)
+values_3d = values_flat[..., 0].reshape(-1, 121, 145, 121)
 
 #############################
 ### Plot 5 slices ###

@@ -28,7 +28,7 @@ Files (run in this order):
 -extract_train_age.py
 -extract_test.py
 
-Please run all files from the root. 
+For the rest of this document, please run the files from the root.
 
 The artifacts/ folder already contains coefficients_final.npz,
 which has the coefficients obtained from representing the training 
@@ -39,7 +39,7 @@ Use the following command to create an npz file with coefficients (assuming
 that the previous data extraction has been performed)-
 python src/analysis/fd_coef.py
 
-Once artifacts/coefficients_final.npz exists, the make file can be run as
+Once artifacts/coefficients_final.npz exists, the makefile can be run as
 -make visualize_slice: Visualizing 2D slices for a random subject from
 	the raw VBM file and comparison with the 3D tensor obtained from
  	the functional data basis approximation. 

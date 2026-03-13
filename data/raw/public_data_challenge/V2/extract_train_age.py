@@ -18,7 +18,7 @@ os.makedirs(OUT_DIR, exist_ok=True)
 print("Loading data:", NPY_PATH)
 subj_metadata = pd.read_csv(NPY_PATH, sep="\t")
 N, D_total = subj_metadata.shape
-print(f"Loaded: {N} subjects, {D_total} features per subject")
+print(f"Loaded: {N} subjects, {D_total} metadata per subject")
 
 X_age = subj_metadata["age"]
 
@@ -27,4 +27,4 @@ X_age = subj_metadata["age"]
 # ============================================
 out_path = os.path.join(OUT_DIR, f"train_y.npy")
 np.save(out_path, X_age)
-print(f"Done. Saved {N} ages to folder: {OUT_DIR}")
+print(f"Done. Saved ages for {N} subjects to folder: {OUT_DIR}")

@@ -1,5 +1,6 @@
 # this file trains a shallow neural network for regressing age on fda_coefs
 import numpy as np
+import os
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
@@ -8,9 +9,17 @@ from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
 
 # --- Load data ---
-X = np.load("artifacts/coefficients_final.npz")["coefficients"]  # (3227,1,512)
-X = X.squeeze(1) # (3227, 512)
-y = np.load("data/raw/public_data_challenge/VBM_extracted/train_y.npy")  # (3227,)
+coef_final_path = "artifacts/coefficients_final.npz"
+if os.path.exists(coef_final_path):
+    X = np.load("artifacts/coefficients_final.npz")["coefficients"]  # (3227,1,512)
+    X = X.squeeze(1) # (3227, 512)
+    y = np.load("data/raw/public_data_challenge/VBM_extracted/train_y.npy")  # (3227,)
+else:
+    X = np.load("artifacts/checkpoint.npz")["coefficients"]  # (a,1,512)
+    X = X.squeeze(1)  # (a, 512)
+    y = np.load(
+        "data/raw/public_data_challenge/VBM_extracted/train_y.npy")  # (3227,)
+    y = y[:X.shape[0]]
 
 # --- Preprocess ---
 scaler_X = StandardScaler()

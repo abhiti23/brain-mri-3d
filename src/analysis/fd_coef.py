@@ -7,6 +7,7 @@ import os
 import skfda
 from skfda import FDataGrid
 from skfda.representation.basis import BSplineBasis, TensorBasis
+import fnmatch
 
 def fd_coef(subj_number = 0, n_basis = 8, verbose = False):
     """
@@ -63,13 +64,15 @@ def fd_coef(subj_number = 0, n_basis = 8, verbose = False):
 if __name__ == "__main__":
 
     VBM_DIR = "data/raw/public_data_challenge/VBM_extracted"
-    #vbm_files = os.listdir(VBM_DIR)
-    #L = len(vbm_files)
-    L = 3227
-    print(f"Found {L} VBM files.")
+    count_test_and_train = len(fnmatch.filter(os.listdir(VBM_DIR),
+                                              'VBM_*.npy'))
+    count_test = len(fnmatch.filter(os.listdir(VBM_DIR),
+                                              'VBM_test_*.npy'))
+    count_train = count_test_and_train - count_test
+    print(f"Found {count_train} training VBM files.")
 
     n_basis = 8
-    coef_matrix = np.zeros((L, n_basis**3), dtype = np.float64)
+    coef_matrix = np.zeros((count_train, n_basis**3), dtype = np.float64)
 
     # since code takes really long, let's add checkpoints
     checkpoint_path = "artifacts/checkpoint.npz"
@@ -85,7 +88,7 @@ if __name__ == "__main__":
         start_idx = 0
         print("Starting fresh")
 
-    for i in range(start_idx, L):
+    for i in range(start_idx, count_train):
         all_coefficients.append(fd_coef(i))
 
         if (i + 1) % save_every == 0:
