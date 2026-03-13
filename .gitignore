@@ -2,9 +2,7 @@
 # data files are too large
 external_test*
 internal_test*
-VBM_*
-external_test.npy
-internal_test.npy
+VBM_*.npy
 test.npy
 train.npy
 *.tsv
