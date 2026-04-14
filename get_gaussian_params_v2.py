@@ -1,252 +1,226 @@
-import os
-import glob
-import time
-import argparse
 import numpy as np
+import matplotlib.pyplot as plt
+import time
+import os
 from scipy.special import logsumexp
-from multiprocessing import Pool, cpu_count
-from numba import njit
 
-# Prevent numpy/OpenBLAS from over-subscribing threads 
-# since we are parallelizing at the subject level with multiprocessing.Pool
-os.environ["OMP_NUM_THREADS"] = "1"
-os.environ["OPENBLAS_NUM_THREADS"] = "1"
-os.environ["MKL_NUM_THREADS"] = "1"
+# --- Settings ---
+input_file = 'group_average_gm_T1w.npy'
+output_array_file = 'reconstructed_brain_500comp_weighted.npy' 
+n_components = 500
+threshold = 0.005
 
-# ==========================================
-# 1. NUMBA JIT COMPILED CORE ENGINE
-# ==========================================
-# This function compiles down to pure C/C++ machine code.
-# The first time it runs, it will take ~2 seconds to compile. 
-# After that, it executes at hardware maximum speed.
+# Iteration fractions: Warm-up phase, followed by up to 100 full iterations.
+# Early stopping will break the loop once it converges, so it rarely hits the full 100.
+subsample_fractions = [0.6, 0.7, 0.8, 0.9] + [1.0] * 100 
+# ----------------
 
-@njit(fastmath=True)
-def numba_em_core_3d(X, W, fixed_means, precisions, log_dets, pi_weights, log_prob_const):
-    N = X.shape[0]
-    K = fixed_means.shape[0]
-    
-    resp = np.empty((N, K), dtype=np.float32)
-    log_pi = np.log(pi_weights)
-    log_prob_norm = np.empty(N, dtype=np.float32)
-    
-    # --- E-STEP ---
-    for i in range(N):
-        max_val = -1e30 
-        for k in range(K):
-            # Unrolled 3D distance
-            diff0 = X[i, 0] - fixed_means[k, 0]
-            diff1 = X[i, 1] - fixed_means[k, 1]
-            diff2 = X[i, 2] - fixed_means[k, 2]
-            
-            # Unrolled Mahalanobis Matrix Multiplication (blazing fast)
-            maha = (diff0 * (diff0 * precisions[k, 0, 0] + diff1 * precisions[k, 1, 0] + diff2 * precisions[k, 2, 0]) +
-                    diff1 * (diff0 * precisions[k, 0, 1] + diff1 * precisions[k, 1, 1] + diff2 * precisions[k, 2, 1]) +
-                    diff2 * (diff0 * precisions[k, 0, 2] + diff1 * precisions[k, 1, 2] + diff2 * precisions[k, 2, 2]))
-            
-            val = log_prob_const - 0.5 * (log_dets[k] + maha) + log_pi[k]
-            resp[i, k] = val
-            if val > max_val:
-                max_val = val
-        
-        # logsumexp
-        sum_exp = 0.0
-        for k in range(K):
-            sum_exp += np.exp(resp[i, k] - max_val)
-        
-        log_prob_norm[i] = max_val + np.log(sum_exp)
-        
-        # Convert log_resp to standard probabilities in place
-        for k in range(K):
-            resp[i, k] = np.exp(resp[i, k] - log_prob_norm[i])
-
-    # --- M-STEP ---
-    new_covars = np.zeros((K, 3, 3), dtype=np.float32)
-    Nk = np.zeros(K, dtype=np.float32)
-    
-    for i in range(N):
-        w_i = W[i]
-        for k in range(K):
-            w_resp = resp[i, k] * w_i
-            Nk[k] += w_resp
-            
-            diff0 = X[i, 0] - fixed_means[k, 0]
-            diff1 = X[i, 1] - fixed_means[k, 1]
-            diff2 = X[i, 2] - fixed_means[k, 2]
-            
-            # Unrolled outer product summation
-            new_covars[k, 0, 0] += w_resp * diff0 * diff0
-            new_covars[k, 0, 1] += w_resp * diff0 * diff1
-            new_covars[k, 0, 2] += w_resp * diff0 * diff2
-            new_covars[k, 1, 0] += w_resp * diff1 * diff0
-            new_covars[k, 1, 1] += w_resp * diff1 * diff1
-            new_covars[k, 1, 2] += w_resp * diff1 * diff2
-            new_covars[k, 2, 0] += w_resp * diff2 * diff0
-            new_covars[k, 2, 1] += w_resp * diff2 * diff1
-            new_covars[k, 2, 2] += w_resp * diff2 * diff2
-
-    # Normalize covariances
-    for k in range(K):
-        nk_k = Nk[k] + 1e-10
-        for d1 in range(3):
-            for d2 in range(3):
-                new_covars[k, d1, d2] /= nk_k
-                
-    return log_prob_norm, new_covars, Nk
-
-# ==========================================
-# 2. PYTHON WRAPPERS
-# ==========================================
-
-def fit_subject_fixed_means_numba(X, W, fixed_means, init_covars, init_weights, max_iter=100, tol=1e-3, reg_covar=1e-5):
-    """Wraps the Numba engine with data casting and convergence checking."""
+def fit_weighted_gmm(X, W, n_components, fractions, reg_covar=1e-5, tol=1e-3):
+    """
+    Highly Optimized Weighted Gaussian Mixture Model using pure NumPy BLAS/LAPACK calls.
+    Includes early stopping based on log-likelihood convergence.
+    """
+    total_N = X.shape[0]
     dim = X.shape[1]
-    n_components = len(fixed_means)
     
-    # 1. Strict cast to float32 for maximum memory throughput
-    X = X.astype(np.float32)
-    W = W.astype(np.float32)
-    fixed_means = fixed_means.astype(np.float32)
-    pi_weights = init_weights.astype(np.float32)
-    covars = init_covars.astype(np.float32)
+    print("   -> Initializing parameters...")
+    prob_dist = W / W.sum()
+    init_idx = np.random.choice(total_N, n_components, replace=False, p=prob_dist)
+    means = X[init_idx].astype(float)
     
-    reg_matrix = (np.eye(dim) * reg_covar).astype(np.float32)
-    log_prob_const = np.float32(-0.5 * dim * np.log(2 * np.pi))
+    global_cov = np.cov(X.T)
+    covars = np.tile(global_cov, (n_components, 1, 1))
+    pi_weights = np.ones(n_components) / n_components
+    
+    reg_matrix = np.eye(dim) * reg_covar
+    log_prob_const = -0.5 * dim * np.log(2 * np.pi)
+
+    # Track previous log-likelihood for early stopping
     prev_ll = -np.inf
 
-    for iteration in range(max_iter):
-        regularized_covars = covars + reg_matrix
-        precisions = np.linalg.inv(regularized_covars).astype(np.float32)
-        _, log_dets = np.linalg.slogdet(regularized_covars)
-        log_dets = log_dets.astype(np.float32)
+    for iteration, frac in enumerate(fractions):
+        iter_start = time.time()
         
-        # Call compiled C++ equivalent
-        log_prob_norm, covars, Nk = numba_em_core_3d(
-            X, W, fixed_means, precisions, log_dets, pi_weights, log_prob_const
-        )
-        
-        # Convergence Check
-        current_ll = np.average(log_prob_norm, weights=W)
-        pi_weights = Nk / W.sum()
+        if frac < 1.0:
+            sample_size = int(frac * total_N)
+            idx = np.random.choice(total_N, sample_size, replace=False)
+            X_batch = X[idx]
+            W_batch = W[idx]
+        else:
+            X_batch = X
+            W_batch = W
             
-        if abs(current_ll - prev_ll) < tol:
-            break
-        prev_ll = current_ll
-
-    return pi_weights, covars
-
-
-# ==========================================
-# 3. SINGLE SUBJECT WORKER
-# ==========================================
-def process_subject(args):
-    file_path, fixed_means, init_covars, init_weights, threshold, output_dir = args
-    filename = os.path.basename(file_path)
-    output_filepath = os.path.join(output_dir, filename)
-
-    if os.path.exists(output_filepath):
-        return f"SKIP: {filename}"
-
-    try:
-        brain_data = np.squeeze(np.load(file_path))
-        mask = brain_data > threshold
-        coords = np.argwhere(mask)
-        intensities = brain_data[mask]
-
-        # Use the Numba backend
-        final_weights, final_covars = fit_subject_fixed_means_numba(
-            X=coords, 
-            W=intensities, 
-            fixed_means=fixed_means, 
-            init_covars=init_covars, 
-            init_weights=init_weights
-        )
-
-        params_1d = []
-        n_components = len(fixed_means)
-        for k in range(n_components):
-            weight = final_weights[k]
-            cov = final_covars[k]
-            c_xx, c_xy, c_xz = cov[0, 0], cov[0, 1], cov[0, 2]
-            c_yy, c_yz = cov[1, 1], cov[1, 2]
-            c_zz = cov[2, 2]
-            params_1d.extend([weight, c_xx, c_xy, c_xz, c_yy, c_yz, c_zz])
-
-        params_1d = np.array(params_1d)
-        np.save(output_filepath, params_1d)
-        return f"DONE: {filename}"
-
-    except Exception as e:
-        return f"ERROR: {filename} -> {e}"
-
-
-# ==========================================
-# 4. MAIN PIPELINE
-# ==========================================
-def main():
-    parser = argparse.ArgumentParser(description="Batch process VBMs using a Numba JIT Compiled Fixed-Means GMM.")
-    parser.add_argument('--start', type=int, default=0)
-    parser.add_argument('--end', type=int, default=None)
-    parser.add_argument('--workers', type=int, default=None,
-                        help="Number of parallel workers (default: all available CPUs)")
-    args = parser.parse_args()
-
-    output_dir = 'gmm_1d_outputs'
-    threshold = 0.005
-
-    os.makedirs(output_dir, exist_ok=True)
-
-    # --- STEP A: HANDLE PRIORS ---
-    centers_file = 'group_average_centers.npy'
-    extra_params_file = 'group_average_covars_weights.npz'
-
-    if os.path.exists(centers_file) and os.path.exists(extra_params_file):
-        print(f"[*] Loading existing average priors from '{centers_file}' and '{extra_params_file}'...")
-        fixed_means = np.load(centers_file)
+        N_batch = X_batch.shape[0]
         
-        extra_data = np.load(extra_params_file)
-        init_covars = extra_data['covars']
-        init_weights = extra_data['weights']
-    else:
-        raise FileNotFoundError(
-            f"[!] Missing prior files. Ensure '{centers_file}' and '{extra_params_file}' exist in the directory."
-        )
+        # --- PRECOMPUTE PRECISION MATRICES IN C-LEVEL LAPACK ---
+        regularized_covars = covars + reg_matrix
+        precisions = np.linalg.inv(regularized_covars)
+        _, log_dets = np.linalg.slogdet(regularized_covars)
+        
+        # --- BATCHED E-STEP ---
+        log_resp = np.empty((N_batch, n_components))
+        log_pi = np.log(pi_weights)
+        
+        for k in range(n_components):
+            diff = X_batch - means[k]
+            maha = np.sum(np.dot(diff, precisions[k]) * diff, axis=1)
+            log_resp[:, k] = log_prob_const - 0.5 * (log_dets[k] + maha) + log_pi[k]
+            
+        log_prob_norm = logsumexp(log_resp, axis=1)
+        
+        # Calculate the average weighted log-likelihood for this iteration
+        current_ll = np.average(log_prob_norm, weights=W_batch)
+        
+        log_resp -= log_prob_norm[:, np.newaxis]
+        resp = np.exp(log_resp) 
+        
+        # --- BATCHED M-STEP ---
+        weighted_resp = resp * W_batch[:, np.newaxis] 
+        Nk = weighted_resp.sum(axis=0) + 1e-10 
+        
+        pi_weights = Nk / W_batch.sum()
+        means = np.dot(weighted_resp.T, X_batch) / Nk[:, np.newaxis]
+        
+        for k in range(n_components):
+            diff = X_batch - means[k]
+            covars[k] = np.dot(diff.T, diff * weighted_resp[:, k, np.newaxis]) / Nk[k]
+            
+        # --- CONVERGENCE CHECK ---
+        if frac == 1.0:
+            ll_change = current_ll - prev_ll
+            print(f"   -> Iteration {iteration+1} (Data: 100%) - Time: {time.time() - iter_start:.1f}s - LL Change: {ll_change:.6f}")
+            
+            # If the change in log-likelihood is smaller than the tolerance, stop early
+            if abs(ll_change) < tol:
+                print(f"\n   => SUCCESS: Converged at iteration {iteration+1} (Tolerance limit {tol} reached)!")
+                break
+                
+            prev_ll = current_ll
+        else:
+            print(f"   -> Iteration {iteration+1} (Data: {frac*100:g}%) - Time: {time.time() - iter_start:.1f}s")
 
-    # --- STEP B: PREPARE FILES ---
-    search_pattern = 'sub-*_preproc-cat12vbm_desc-gm_T1w.npy'
-    all_files = sorted(glob.glob(search_pattern))
+    return means, covars, pi_weights
+
+def score_samples_gmm(X, means, covars, pi_weights, reg_covar=1e-5):
+    """Evaluates final PDF using the same optimized BLAS routines."""
+    N_batch = X.shape[0]
+    n_components = len(means)
+    dim = X.shape[1]
     
-    if not all_files:
-        print(f"[!] No files matching '{search_pattern}' found.")
-        return
+    reg_matrix = np.eye(dim) * reg_covar
+    log_prob_const = -0.5 * dim * np.log(2 * np.pi)
+    
+    regularized_covars = covars + reg_matrix
+    precisions = np.linalg.inv(regularized_covars)
+    _, log_dets = np.linalg.slogdet(regularized_covars)
+    
+    log_resp = np.empty((N_batch, n_components))
+    log_pi = np.log(pi_weights)
+    
+    for k in range(n_components):
+        diff = X - means[k]
+        maha = np.sum(np.dot(diff, precisions[k]) * diff, axis=1)
+        log_resp[:, k] = log_prob_const - 0.5 * (log_dets[k] + maha) + log_pi[k]
+        
+    return logsumexp(log_resp, axis=1)
 
-    end_idx = args.end if args.end is not None else len(all_files)
-    files_to_process = all_files[args.start:end_idx]
-    total_files = len(files_to_process)
+# ==========================================
+# MAIN EXECUTION
+# ==========================================
 
-    n_workers = args.workers if args.workers else cpu_count()
-    print(f"\n[*] Processing {total_files} subjects using {n_workers} parallel workers.")
-    print(f"[*] Note: The first subject may take an extra ~2s to JIT compile the C++ core.")
-    print("-" * 65)
+print("1. Loading, squeezing, and thresholding original data...")
+brain_data = np.squeeze(np.load(input_file))
+max_actual = np.max(brain_data[brain_data > threshold])
 
-    # --- STEP C: PARALLEL EXECUTION ---
-    worker_args = [
-        (fp, fixed_means, init_covars, init_weights, threshold, output_dir)
-        for fp in files_to_process
-    ]
+if os.path.exists(output_array_file):
+    print(f"\n---> SUCCESS: Found existing reconstruction!")
+    print(f"     Loading '{output_array_file}' directly...")
+    reconstructed_brain = np.load(output_array_file)
 
+else:
+    print(f"\n---> No saved reconstruction found. Fitting Weighted GMM from scratch...")
+    mask = brain_data > threshold
+    coordinates = np.argwhere(mask)
+    actual_intensities = brain_data[mask]
+
+    print(f"2. Fitting {n_components} components using Optimized Weighted EM...")
     start_time = time.time()
-    completed = 0
+    
+    means, covars, pi_weights = fit_weighted_gmm(
+        X=coordinates, 
+        W=actual_intensities, 
+        n_components=n_components, 
+        fractions=subsample_fractions
+    )
+    
+    print(f"   Total Fitting Done in {(time.time() - start_time)/60:.1f} minutes.")
 
-    with Pool(processes=n_workers) as pool:
-        for result in pool.imap_unordered(process_subject, worker_args):
-            completed += 1
-            elapsed = time.time() - start_time
-            rate = completed / elapsed  
-            remaining = total_files - completed
-            eta_mins = (remaining / rate) / 60 if rate > 0 else 0
-            print(f"[{completed}/{total_files}] {result} | ETA: {eta_mins:.1f} mins")
+    # Save the extracted centers to a separate file (Original setup preserved)
+    centers_file = 'group_average_centers.npy'
+    print(f"   Saving GMM centers to '{centers_file}'...")
+    np.save(centers_file, means)
 
-    print(f"\n[*] Batch complete! Total time: {(time.time() - start_time)/60:.1f} mins")
+    # NEW: Save intensities (weights) and covariances to a separate file
+    extra_params_file = 'group_average_covars_weights.npz'
+    print(f"   Saving GMM covariances and intensities to '{extra_params_file}'...")
+    np.savez(extra_params_file, covars=covars, weights=pi_weights)
 
-if __name__ == "__main__":
-    main()
+    print("3. Reconstructing the 3D volume with Min-Max scaling...")
+    log_pdf_values = score_samples_gmm(coordinates, means, covars, pi_weights)
+    pdf_values = np.exp(log_pdf_values)
+    
+    predicted_intensities = (pdf_values / np.max(pdf_values)) * max_actual
+
+    reconstructed_brain = np.zeros_like(brain_data)
+    reconstructed_brain[tuple(coordinates.T)] = predicted_intensities
+
+    print(f"   Saving reconstructed 3D array to '{output_array_file}'...")
+    np.save(output_array_file, reconstructed_brain)
+    print("   Save complete!\n")
+
+# ----------------------------
+print("4. Generating Sagittal, Coronal, and Axial plots...")
+vmax = max_actual
+
+def save_view_plot(axis, view_name, filename):
+    dim_size = brain_data.shape[axis]
+    slices_to_plot = [int(dim_size * 0.4), int(dim_size * 0.5), int(dim_size * 0.6)]
+    
+    fig, axes = plt.subplots(nrows=3, ncols=2, figsize=(10, 12))
+    fig.suptitle(f"Original vs Weighted GMM ({n_components} Comp) - {view_name} View", fontsize=16)
+    
+    for i, slice_idx in enumerate(slices_to_plot):
+        ax_orig = axes[i, 0]
+        ax_recon = axes[i, 1]
+        
+        if axis == 0:   # Sagittal
+            slice_orig = brain_data[slice_idx, :, :].T
+            slice_recon = reconstructed_brain[slice_idx, :, :].T
+        elif axis == 1: # Coronal
+            slice_orig = brain_data[:, slice_idx, :].T
+            slice_recon = reconstructed_brain[:, slice_idx, :].T
+        else:           # Axial
+            slice_orig = brain_data[:, :, slice_idx].T
+            slice_recon = reconstructed_brain[:, :, slice_idx].T
+            
+        im_orig = ax_orig.imshow(slice_orig, cmap='magma', origin='lower', vmin=0, vmax=vmax)
+        ax_orig.set_title(f"Original Data (Slice {slice_idx})")
+        ax_orig.axis('off')
+        
+        im_recon = ax_recon.imshow(slice_recon, cmap='magma', origin='lower', vmin=0, vmax=vmax)
+        ax_recon.set_title(f"Weighted GMM Recon (Slice {slice_idx})")
+        ax_recon.axis('off')
+
+    cbar_ax = fig.add_axes([0.15, 0.05, 0.7, 0.02])
+    fig.colorbar(im_orig, cax=cbar_ax, orientation='horizontal', label='Voxel Intensity')
+    
+    plt.tight_layout(rect=[0, 0.08, 1, 0.96])
+    plt.savefig(filename, dpi=300)
+    plt.close() 
+    print(f"   -> Saved {filename}")
+
+save_view_plot(axis=0, view_name="Sagittal", filename="weighted_gmm_sagittal.png")
+save_view_plot(axis=1, view_name="Coronal",  filename="weighted_gmm_coronal.png")
+save_view_plot(axis=2, view_name="Axial",    filename="weighted_gmm_axial.png")
+
+print("\nSuccess! Array saved and images generated.")
