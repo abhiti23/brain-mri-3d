@@ -1,0 +1,24 @@
+error_correlation: 0.5470
+optimal_lasso_weight: 0.31
+optimal_xgb_weight: 0.69
+
+LassoCV:
+  mae: 4.0188
+  rmse: 5.8623
+  r2: 0.8390
+
+XGBoost:
+  mae: 3.4997
+  rmse: 5.3595
+  r2: 0.8654
+
+Ensemble (50/50):
+  mae: 3.3505
+  rmse: 4.9358
+  r2: 0.8858
+
+Ensemble (0.31/0.69):
+  mae: 3.2927
+  rmse: 4.9323
+  r2: 0.8860
+
