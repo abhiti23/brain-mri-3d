@@ -26,10 +26,10 @@ GS_REGRESSION/    ← working folder
 
 Run the commands in the following order:
 
-1. python age_regression_lasso_cv.py  --
-2. python age_regression_xgb_cv.py    --
-3. python eval_ensemble_cv.py         --
-4. python analyze_lasso_features.py   --
-5. python train_eval_lasso.py         --
-6. python train_eval_xgb.py           --
-7. python eval_ensemble.py
+1. python age_regression_lasso_cv.py  --    Lasso regression on training data, 10-fold cross validation, outputs stored in the folder "LASSOCV_RESULTS"
+2. python age_regression_xgb_cv.py    --    XGBoost regression on training data, 10-fold cross validation, outputs stored in the folder "XGBCV_RESULTS"
+3. python eval_ensemble_cv.py         --    Ensemble of lasso and xgboost, outputs stored in the folder "ensemble_cv"
+4. python analyze_lasso_features.py   --    Gives statistics of surviving lasso features, outputs in the terminal log
+5. python train_eval_lasso.py         --    Trains lasso on the full data and evaluates on the test set, outputs stored in the folder "lasso_final"
+6. python train_eval_xgb.py           --    Trains xgboost on the full data and evaluates on the test set, outputs stored in the folder "xgb_final"
+7. python eval_ensemble.py            --    Evaluates the ensemble of the two models on the test set, outputs stored in the folder "ensemble_final"
