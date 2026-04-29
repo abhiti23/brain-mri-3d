@@ -1,0 +1,10 @@
+error_correlation: 0.6264
+LassoCV_mae: 4.1715
+LassoCV_rmse: 5.4928
+LassoCV_r2: 0.8146
+XGBoost_mae: 3.9492
+XGBoost_rmse: 6.2617
+XGBoost_r2: 0.7590
+Ensemble_mae: 3.7014
+Ensemble_rmse: 5.2915
+Ensemble_r2: 0.8279

@@ -1,0 +1,11 @@
+model: LassoCV
+alpha: 0.081522
+train_n: 3227
+val_n: 757
+non_zero_features: 777
+train_mae: 2.8726
+train_rmse: 3.7990
+train_r2: 0.9324
+val_mae: 4.1715
+val_rmse: 5.4928
+val_r2: 0.8146

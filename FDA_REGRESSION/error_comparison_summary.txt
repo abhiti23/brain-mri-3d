@@ -1,0 +1,46 @@
+================================================================
+RIDGE vs XGBOOST — ERROR CORRELATION & ENSEMBLE ANALYSIS
+================================================================
+N subjects matched: 3227
+
+Per-model performance (out-of-fold predictions):
+  Ridge   : MAE=6.526  RMSE=8.614  R²=0.652
+  XGBoost : MAE=5.985  RMSE=8.917  R²=0.627
+
+Error correlations (raw):
+  Signed errors  Pearson  r = +0.636  (p = 0.00e+00)
+  Signed errors  Spearman ρ = +0.538  (p = 1.87e-241)
+  |Errors|       Pearson  r = +0.512  (p = 1.07e-214)
+  |Errors|       Spearman ρ = +0.316  (p = 6.11e-76)
+
+Error vs age slopes (regression-to-the-mean indicator):
+  Ridge   : err = -0.328 * age + +8.26
+  XGBoost : err = -0.402 * age + +10.20
+  (negative slope = older subjects predicted too young, classic RTM)
+
+Detrended error correlation (this is what matters for ensembling):
+  Pearson r = +0.431  (p = 3.25e-146)
+  Lower |r| ⇒ more independent signal ⇒ more ensemble headroom.
+
+Ensemble performance:
+  50/50 average    : MAE=5.611  RMSE=7.928  R²=0.705
+  Optimal convex   : MAE=5.654  RMSE=7.920  R²=0.706
+  Optimal weight w*= 0.547  (ridge weight; xgb weight = 0.453)
+
+Theoretical signed-error variance:
+  Var(err_ridge)        = 74.199
+  Var(err_xgb)          = 79.502
+  Cov(err_ridge, err_xgb)= 48.853
+  Var(err_avg)          = 62.852
+  Variance reduction vs best single model: +15.3%
+
+Caveats:
+  • Optimal weight w* is fit on the same out-of-fold predictions used
+    to evaluate it. The reported optimal-ensemble metrics are slightly
+    optimistic. For an unbiased estimate, do nested CV for w.
+  • If 50/50 average already improves over the better single model,
+    the gain is robust — no weight tuning needed.
+  • If 50/50 is worse than the better single model but the optimal-
+    weight ensemble is better, the gain depends on tuning w and is
+    less reliable. Validate via nested CV before trusting it.
+================================================================
