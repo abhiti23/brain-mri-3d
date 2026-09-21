@@ -9,7 +9,7 @@ parent/
 ├── ...
 └── weighted_gmm/                                 ← working folder
     ├── group_average_gm_T1w.npy
-    ├── fit_average_brain_free_means.npy
+    ├── fit_average_brain_free_means.py
     ├── fit_subjects_batch_numba.py
     └── reconstruct_from_saved_model.py
 ```
@@ -52,7 +52,7 @@ parent/
     ├── centers.npy
     ├── avg_model.npz
     ├── avg_reconstructed.npy
-    ├── fit_average_brain_free_means.npy
+    ├── fit_average_brain_free_means.py
     ├── fit_subjects_batch_numba.py
     ├── reconstruct_from_saved_model.py
     └── gmm_features_weighted/                    ← outputs land here
