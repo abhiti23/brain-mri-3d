@@ -4,7 +4,7 @@ Predicting chronological age from structural brain MRI, using a Gaussian splatti
 
 The gap between predicted and chronological brain age is an early marker of atypical aging and neurodegenerative disease. We train on healthy subjects from the OpenBHB dataset: 3227 training and 757 test subjects, using VBM data.
 
-See [`poster.pdf`](poster.pdf) for figures and full results. To reproduce the work, start with [`SETUP.md`](SETUP.md).
+See [`Brain_MRI_Poster`](Brain_MRI_Poster.pdf) for figures and full results. To reproduce the work, start with [`SETUP.md`](SETUP.md).
 
 ## Method
 
